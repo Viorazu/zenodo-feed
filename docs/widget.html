@@ -1,0 +1,188 @@
+<!--
+  Viorazu. Feed Widget v4
+  note / Blogger / Zenodo の最新記事を自動表示
+  WixのHTML埋め込みにこのコードを貼り付ける
+-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Helvetica Neue', 'Hiragino Sans', sans-serif;
+    background: transparent;
+    color: #333;
+    line-height: 1.8;
+    padding: 16px;
+  }
+  .feed-section {
+    margin-bottom: 24px;
+  }
+  .feed-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: #222;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #333;
+  }
+  .feed-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  .feed-item:last-child {
+    border-bottom: none;
+  }
+  .feed-item a {
+    color: #FA6254;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .feed-item a:hover {
+    text-decoration: underline;
+  }
+  .feed-date {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .feed-doi {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+  }
+  .loading {
+    color: #999;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<div class="feed-section">
+  <div class="feed-title">Zenodo - 最新論文</div>
+  <div id="zenodo-feed"><span class="loading">読み込み中...</span></div>
+</div>
+
+<div class="feed-section">
+  <div class="feed-title">note - 最新記事</div>
+  <div id="note-feed"><span class="loading">読み込み中...</span></div>
+</div>
+
+<div class="feed-section">
+  <div class="feed-title">世界は圏論でできている - 最新記事</div>
+  <div id="blogger-feed"><span class="loading">読み込み中...</span></div>
+</div>
+
+<div class="feed-section">
+  <div class="feed-title">AI参照率攻略法 - 最新記事</div>
+  <div id="blogger2-feed"><span class="loading">読み込み中...</span></div>
+</div>
+
+<script>
+// === RSS feeds (note, Blogger) via rss2json ===
+var RSS2JSON_API = 'https://api.rss2json.com/v1/api.json?rss_url=';
+
+var rssFeeds = [
+  {
+    url: 'https://note.com/viorazu/rss',
+    elementId: 'note-feed',
+    count: 5
+  },
+  {
+    url: 'https://viorazu-categorytheory.blogspot.com/feeds/posts/default?alt=rss',
+    elementId: 'blogger-feed',
+    count: 5
+  },
+  {
+    url: 'https://viorazu-ai.blogspot.com/feeds/posts/default?alt=rss',
+    elementId: 'blogger2-feed',
+    count: 5
+  }
+];
+
+function formatDate(dateStr) {
+  var d = new Date(dateStr);
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return y + '.' + m + '.' + day;
+}
+
+function renderRssFeed(items, elementId, count) {
+  var container = document.getElementById(elementId);
+  if (!items || items.length === 0) {
+    container.innerHTML = '<span class="loading">記事がありません</span>';
+    return;
+  }
+  var html = items.slice(0, count).map(function(item) {
+    return '<div class="feed-item">'
+      + '<a href="' + item.link + '" target="_blank" rel="noopener">' + item.title + '</a>'
+      + '<div class="feed-date">' + formatDate(item.pubDate) + '</div>'
+      + '</div>';
+  }).join('');
+  container.innerHTML = html;
+}
+
+function loadRssFeed(feed) {
+  fetch(RSS2JSON_API + encodeURIComponent(feed.url))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status === 'ok') {
+        renderRssFeed(data.items, feed.elementId, feed.count);
+      } else {
+        document.getElementById(feed.elementId).innerHTML =
+          '<span class="loading">フィード取得エラー</span>';
+      }
+    })
+    .catch(function() {
+      document.getElementById(feed.elementId).innerHTML =
+        '<span class="loading">フィード取得エラー</span>';
+    });
+}
+
+rssFeeds.forEach(loadRssFeed);
+
+// === Zenodo via GitHub Pages（CORS問題なし） ===
+var ZENODO_JSON = 'https://viorazu.github.io/zenodo-feed/data.json';
+
+function loadZenodo() {
+  fetch(ZENODO_JSON)
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      var container = document.getElementById('zenodo-feed');
+      var records = data.records || [];
+      if (records.length === 0) {
+        container.innerHTML = '<span class="loading">論文がありません</span>';
+        return;
+      }
+      // 最新5件を表示
+      var html = records.slice(0, 5).map(function(rec) {
+        return '<div class="feed-item">'
+          + '<a href="' + rec.url + '" target="_blank" rel="noopener">' + rec.title + '</a>'
+          + '<div class="feed-date">' + rec.date + '</div>'
+          + (rec.doi ? '<div class="feed-doi">DOI: ' + rec.doi + '</div>' : '')
+          + '</div>';
+      }).join('');
+      container.innerHTML = html;
+    })
+    .catch(function() {
+      // GitHub Pages未設定の場合のフォールバック
+      document.getElementById('zenodo-feed').innerHTML =
+        '<div class="feed-item">'
+        + '<a href="https://zenodo.org/search?q=Viorazu&sort=mostrecent" target="_blank" rel="noopener">'
+        + 'Zenodo で論文を見る →</a>'
+        + '</div>';
+    });
+}
+
+loadZenodo();
+</script>
+
+</body>
+</html>

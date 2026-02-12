@@ -11,7 +11,7 @@ def fetch_all():
     records = []
     page = 1
     while True:
-        url = f"{ZENODO_API}?q={QUERY}&sort=mostrecent&size={PAGE_SIZE}&page={page}"
+        url = f"{ZENODO_API}?q=metadata.creators.person_or_org.name%3A%22Viorazu%22&sort=mostrecent&size={PAGE_SIZE}&page={page}"
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req) as res:
             data = json.loads(res.read().decode("utf-8"))
